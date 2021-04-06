@@ -1,4 +1,11 @@
-No existe tabla CANAL en BQ
-No existe tabla FK_CANAL en BQ
-
-Preguntar: El procedimiento que se encontró en el servidor AQL008DB tenía una P al inicio del nombre del procedimiento. Es decir, no aparecía exactamente a como figuraba en el libro compartido en Drive. Llevaba una P al inicio, de resto era igual. Por tanto, se eligió trabajar con ese ya que no existían más.
+MERGE CANAL AS C
+USING 
+(SELECT CODI_EMPRESA, CODI_CANAL, NOMBRE_CANAL
+FROM FK_CANAL ) AS P 
+ON  P.CODI_EMPRESA=C.CODI_EMPRESA
+AND C.CODI_CANAL=P.CODI_CANAL
+WHEN MATCHED THEN
+UPDATE  SET C.DESC_CANAL = COALESCE (P.NOMBRE_CANAL,'NO APLICA')
+WHEN NOT MATCHED THEN
+INSERT (C.CODI_EMPRESA, C.CODI_TABLA, C.CODI_CANAL, C.DESC_CANAL) --Todos los campos a insertar son de la tabla CANAL
+VALUES (P.CODI_EMPRESA,'SV',P.CODI_CANAL,P.NOMBRE_CANAL ) --Todos los valores vienen de la tabla FK_CANAL
