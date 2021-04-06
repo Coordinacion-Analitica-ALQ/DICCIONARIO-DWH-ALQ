@@ -1,0 +1,4 @@
+No existe tabla CANAL en BQ
+No existe tabla FK_CANAL en BQ
+
+Preguntar: El procedimiento que se encontró en el servidor AQL008DB tenía una P al inicio del nombre del procedimiento. Es decir, no aparecía exactamente a como figuraba en el libro compartido en Drive. Llevaba una P al inicio, de resto era igual. Por tanto, se eligió trabajar con ese ya que no existían más.
