@@ -1,0 +1,4 @@
+SQL Server Properties (Driver) - Import Query
+
+SELECT * FROM PERIODO_DIASH
+WHERE PERIODO>=${PERIODO}
