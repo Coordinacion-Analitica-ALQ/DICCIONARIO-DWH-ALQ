@@ -1,0 +1,5 @@
+SQL Server Properties (Driver) - Import Query
+
+select PK_CODIGO, CODI_CANALASO, DESC_CANALASO, CODI_CANALSUPE, ANO
+from dbo.CANAL_ASOCIADO
+where ANO= 2015

@@ -1,0 +1,3 @@
+SQL Server Properties (Driver) - Import Query
+
+select *  from  log.PEDIDOS_vs_DESPACHOS_DIA
