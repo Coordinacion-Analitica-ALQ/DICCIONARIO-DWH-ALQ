@@ -1,0 +1,3 @@
+SQL Server Properties (Driver) - Import Query
+
+select CODI_VENDEDOR, DISTRITO, ZONA from  dbo.DASA_DISTR_ZONA
