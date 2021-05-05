@@ -1,0 +1,5 @@
+SQL Server Properties (Driver) - Import Query
+
+select   TOP 5 *
+from [dbo].[DIM_CTRO_TRANSPORTE]
+ 
