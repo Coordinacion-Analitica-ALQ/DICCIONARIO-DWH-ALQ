@@ -1,0 +1,5 @@
+SQL Server Properties (Driver) - Import Query
+
+SELECT   ID_KIT ,  lTRIM(rtrim(CODI_EMPRESA)) AS  CODI_EMPRESA , lTRIM(rtrim(CODI_KIT)) AS CODI_KIT ,   CODIGO_KIT ,  lTRIM(rtrim(NOMBRE_KIT)) AS NOMBRE_KIT 
+FROM  dbo.PADRE_KITS 
+ORDER BY 1 

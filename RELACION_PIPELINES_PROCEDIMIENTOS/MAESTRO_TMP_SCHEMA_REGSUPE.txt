@@ -1,0 +1,3 @@
+SQL Server Properties (Driver) - Import Query
+
+select CODI_UNIDAD, CODI_REGISUPE, REGION_SUPERIOR  from   dbo.REGIONAL_SUPERIOR_N

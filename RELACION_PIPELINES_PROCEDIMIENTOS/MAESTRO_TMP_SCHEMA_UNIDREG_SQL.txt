@@ -1,0 +1,3 @@
+SQL Server Properties (Driver) - Import Query
+
+select [CODI_UNIDAD], [CODI_REGIONAL], [CODI_EMPRESA] from  [dbo].[UNIDAD_REGIONAL]
