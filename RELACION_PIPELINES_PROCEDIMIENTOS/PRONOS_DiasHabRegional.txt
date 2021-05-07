@@ -1,0 +1,11 @@
+SELECT FN.PERIODO() AS PERIODO;
+
+DELETE MAESTRO.DIASH_REGIONAL
+WHERE PERIODO=${PERIODO};
+
+INSERT INTO MAESTRO.DIASH_REGIONAL
+( CODI_REGIONAL, NOMBRE_REGIONAL, PERIODO, FECHA,PESO_DIA, ID_FECHA)
+select [Codigo Regional], Regional, Periodo, Fecha, [Dias corridos],null  
+from COMERCIAL.PERIODO_DIASH
+ where [Codigo Regional] is not null
+and Periodo=${PERIODO};
