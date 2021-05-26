@@ -1,0 +1,128 @@
+DECLARE periodop INT64 DEFAULT CAST(FORMAT_DATE("1%y%m",DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY)) AS INT64);
+DECLARE fecha_ayer DATE DEFAULT DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY);
+DECLARE fecha_hoy DATE DEFAULT DATE((SELECT DISTINCT FORMAT_DATE("%Y/%m/%d", DATE(V.FECHA_REQU_PED)) FROM COMERCIAL.VENTAS_REPORTE_MENSUAL AS V
+WHERE PERIODO = periodop AND CODI_EMPRESA IN ('GA', 'DN')
+AND FORMAT_DATE("%Y/%m/%d", DATE(V.FECHA_REQU_PED)) = FORMAT_DATE("%Y/%m/%d", CURRENT_DATE("America/Bogota"))));
+
+DECLARE mensaje1 STRING;
+DECLARE ndasa STRING DEFAULT 'ND';
+DECLARE nalq STRING DEFAULT 'NG';
+DECLARE nfk STRING DEFAULT 'NF';
+
+SELECT fecha_ayer AS AYER;
+SELECT fecha_hoy AS HOY;
+
+
+IF fecha_hoy IS NULL THEN
+
+    SET mensaje1 = CONCAT('NO HAY VENTAS DEL DIA DE AYER ', CAST(FORMAT_DATE("%Y/%m/%d", fecha_ayer) AS STRING), ' De ');
+    SET ndasa = (SELECT DISTINCT CODI_EMPRESA FROM COMERCIAL.VENTAS_REPORTE_MENSUAL AS V WHERE CODI_EMPRESA = 'DN' AND FORMAT_DATE("%Y/%m/%d", DATE(V.FECHA_REQU_PED)) = FORMAT_DATE("%Y/%m/%d", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY)));
+    SET nalq = (SELECT DISTINCT CODI_EMPRESA FROM COMERCIAL.VENTAS_REPORTE_MENSUAL AS V WHERE CODI_EMPRESA = 'GA' AND FORMAT_DATE("%Y/%m/%d", DATE(V.FECHA_REQU_PED)) = FORMAT_DATE("%Y/%m/%d", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY)));
+    SET nfk = (SELECT DISTINCT CODI_EMPRESA FROM COMERCIAL.VENTAS_REPORTE_MENSUAL AS V WHERE CODI_EMPRESA = 'FK' AND FORMAT_DATE("%Y/%m/%d", DATE(V.FECHA_REQU_PED)) = FORMAT_DATE("%Y/%m/%d", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY)));
+
+
+    IF ndasa IS NULL THEN
+        SET mensaje1 = CONCAT(mensaje1, ' DN,');
+    END IF;
+
+    IF nalq IS NULL THEN
+        SET mensaje1 = CONCAT(mensaje1, ' GA,');
+    END IF;
+
+    IF nfk IS NULL THEN
+        SET mensaje1 = CONCAT(mensaje1, ' FK');
+    END IF;
+
+    SELECT mensaje1 AS mensaje1;
+
+END IF;
+
+
+IF (fecha_hoy = fecha_ayer) THEN 
+
+    SET ndasa = (SELECT DISTINCT CODI_EMPRESA FROM COMERCIAL.VENTAS_REPORTE_MENSUAL AS V WHERE CODI_EMPRESA = 'DN' AND FORMAT_DATE("%Y/%m/%d", DATE(V.FECHA_REQU_PED)) = FORMAT_DATE("%Y/%m/%d", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY)));
+    SET nalq = (SELECT DISTINCT CODI_EMPRESA FROM COMERCIAL.VENTAS_REPORTE_MENSUAL AS V WHERE CODI_EMPRESA = 'GA' AND FORMAT_DATE("%Y/%m/%d", DATE(V.FECHA_REQU_PED)) = FORMAT_DATE("%Y/%m/%d", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY)));
+    SET nfk = (SELECT DISTINCT CODI_EMPRESA FROM COMERCIAL.VENTAS_REPORTE_MENSUAL AS V WHERE CODI_EMPRESA = 'FK' AND FORMAT_DATE("%Y/%m/%d", DATE(V.FECHA_REQU_PED)) = FORMAT_DATE("%Y/%m/%d", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY)));
+
+    IF ndasa IS NOT NULL OR nalq IS NOT NULL OR nfk IS NOT NULL THEN
+        SET mensaje1 = CONCAT('FALTA VENTAS DEL DIA DE AYER ', CAST(FORMAT_DATE("%Y/%m/%d", fecha_ayer) AS STRING), ' de ', ndasa, ' ', nalq, ' ', nfk);
+    END IF;
+
+END IF;
+
+--VALIDA SI HAY FECHAS ANTERIORES QUE NO SE CARGARON
+
+TRUNCATE TABLE COMERCIAL.RESUM_FECHASVENTAS;
+INSERT INTO COMERCIAL.RESUM_FECHASVENTAS
+(CODI_EMPRESA,FECHA_REQU_PED)
+SELECT DISTINCT   
+CODI_EMPRESA, TIMESTAMP(FORMAT_DATE("%Y/%m/%d", DATE(FECHA_REQU_PED)))
+FROM COMERCIAL.RESUM_VENTAS_REPORTE AS V
+WHERE CODI_EMPRESA IN ('DN','GA')
+AND  CONCAT(CODI_EMPRESA, CAST(FORMAT_DATE("%Y/%m/%d", DATE(FECHA_REQU_PED)) AS STRING)) 
+NOT IN 
+(
+SELECT DISTINCT CONCAT(CODI_EMPRESA, CAST(FORMAT_DATE("%Y/%m/%d", DATE(FECHA_REQU_PED)) AS STRING))
+FROM COMERCIAL.VENTAS_REPORTE_MENSUAL WHERE CODI_EMPRESA IN ('DN','GA')
+)
+UNION ALL
+SELECT DISTINCT CODI_EMPRESA, TIMESTAMP(FORMAT_DATE("%Y/%m/%d", DATE(FECHA_REQU_PED)))
+FROM COMERCIAL.RESUM_VENTAS_REPORTE AS V WHERE CODI_EMPRESA IN ('FK')
+AND  CONCAT(CODI_EMPRESA,CAST(FORMAT_DATE("%Y/%m/%d", DATE(FECHA_REQU_PED)) AS STRING))
+NOT IN (SELECT DISTINCT CONCAT(CODI_EMPRESA,CAST(FORMAT_DATE("%Y/%m/%d", DATE(FECHA_REQU_PED)) AS STRING))
+FROM COMERCIAL.VENTAS_REPORTE_MENSUAL_FK WHERE CODI_EMPRESA IN ('FK'));
+
+SET conteo = (SELECT COUNT(*) FROM COMERCIAL.RESUM_FECHASVENTAS);
+
+/*
+IF @CONTEO<>0 
+BEGIN
+EXEC msdb.dbo.sp_send_dbmail
+@profile_name = 'alq008db',
+@recipients = 'dcasallas@alqueria.com.co;dianascasallas@gmail.com;hector.romero@freskaleche.com.co',
+@subject = 'VERIFICAR TABLA dbo.RESUM_FECHASVENTAS FALTAS VENTAS DE DIAS ANTERIORES',
+@attach_query_result_as_file = 0 ;	
+-- exec msdb.dbo.sp_update_schedule  @name = 'VENTA_VERIFICA',@enabled =1 --habilita la programacion del schedule
+--exec msdb.dbo.sp_update_job  @job_name = 'VENTA_VERIFICA', @enabled = 1  --habilita el job
+END
+IF @MENSAJE1 IS NOT NULL
+BEGIN
+EXEC msdb.dbo.sp_send_dbmail
+@profile_name = 'alq008db',
+@recipients = 'dcasallas@alqueria.com.co;dianascasallas@gmail.com;hector.romero@freskaleche.com.co',
+@subject =     @MENSAJE1  
+--@attach_query_result_as_file = 0 ;	
+-- exec msdb.dbo.sp_update_schedule  @name = 'VENTA_VERIFICA',@enabled =1 --habilita la programacion del schedule
+--exec msdb.dbo.sp_update_job  @job_name = 'VENTA_VERIFICA', @enabled = 1  --habilita el job
+END
+*/
+
+INSERT INTO COMERCIAL.RESUM_TOTALVENTAS
+(CODI_EMPRESA, FECHA_REQU_PED,VALOR_AYER,VALOR_HOY)
+(SELECT CODI_EMPRESA,TIMESTAMP(FORMAT_DATE("%Y/%m/%d", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY))), 0 AS VALOR_AYER,SUM(VALOR_NETO) AS VALOR_HOY 
+FROM COMERCIAL.RESUM_VENTAS_REPORTE AS V
+WHERE CODI_EMPRESA IN ('GA','DN','FK') 
+AND FORMAT_DATE("%Y/%m/%d", DATE(FECHA_REQU_PED)) <= FORMAT_DATE("%Y/%m/%d", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY))
+GROUP BY CODI_EMPRESA);
+
+/*create table #Dato (CODI_EMPRESA CHAR(3)   , VALOR_AYER NUMERIC(18,0)  ,		VALOR_HOY NUMERIC(18,0)    )   
+insert into #Dato (CODI_EMPRESA, VALOR_AYER,VALOR_HOY)
+(SELECT  CODI_EMPRESA ,SUM(VALOR_AYER) VLOR_AYER,SUM(VALOR_HOY) VH  
+FROM dbo.RESUM_TOTALVENTAS  
+GROUP BY  CODI_EMPRESA 
+HAVING SUM(VALOR_HOY)<SUM(VALOR_AYER))
+
+SET @CONTEOV=( SELECT COUNT(*) FROM #Dato )
+IF @CONTEOV<>0 
+BEGIN
+EXEC msdb.dbo.sp_send_dbmail
+@profile_name = 'alq008db',
+@recipients = 'dcasallas@alqueria.com.co;dianascasallas@gmail.com;hector.romero@freskaleche.com.co',
+@subject = 'VERIFICAR VENTAS, LA VENTA ESTA MENOR AL DATO DEL DIA ANTERIOR',
+@attach_query_result_as_file = 0 ;	
+-- exec msdb.dbo.sp_update_schedule  @name = 'VENTA_VERIFICA',@enabled =1 --habilita la programacion del schedule
+--exec msdb.dbo.sp_update_job  @job_name = 'VENTA_VERIFICA', @enabled = 1  --habilita el job
+
+END
+drop table #Dato
+*/
