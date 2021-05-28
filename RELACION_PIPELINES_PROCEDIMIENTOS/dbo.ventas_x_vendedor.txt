@@ -1,0 +1,69 @@
+truncate table COMERCIAL.VENTA_X_VENDEDOR;
+
+INSERT INTO COMERCIAL.VENTA_X_VENDEDOR (empresa,vendedor, cliente, articulo, valor, litros, fecha,periodo)
+SELECT CASE WHEN c.marcaEmpresa = '1' then 'GA' else 'DN' end empresa,
+vendedor,codigoCliente,codigoRef,sum((precio-tarifaIva)*cantidad),sum(b.litros),
+CONCAT(
+    '1', 
+    SUBSTRING(CAST(FORMAT_DATE("%d/%m/%Y", DATE(fechaEntrega)) AS STRING), 9, 2),
+    SUBSTRING(CAST(FORMAT_DATE("%d/%m/%Y", DATE(fechaEntrega)) AS STRING), 4, 2),
+    SUBSTRING(CAST(FORMAT_DATE("%d/%m/%Y", DATE(fechaEntrega)) AS STRING), 1, 2)
+ ),
+CONCAT(
+    '1', 
+    SUBSTRING(CAST(FORMAT_DATE("%d/%m/%Y", DATE(fechaEntrega)) AS STRING), 9, 2),
+    SUBSTRING(CAST(FORMAT_DATE("%d/%m/%Y", DATE(fechaEntrega)) AS STRING), 4, 2)
+ )
+from ALQUERIAWEB.ALQUERIA2NOVEDADES.dbo.Encabezado AS a,
+ALQUERIAWEB.ALQUERIA2NOVEDADES.dbo.DetalleKits b,ALQUERIAWEB.ALQUERIA2.dbo.Vendedores AS c
+where a.numeroDoc = b.numeroDoc collate SQL_Latin1_General_CP1_CI_AS
+and a.vendedor=c.codigo 
+and c.marcaEmpresa in ('1','2') 
+and FORMAT_DATE("%d/%m/%Y",DATE(fechaEntrega)) = FORMAT_DATE("%d/%m/%Y",CURRENT_DATE("America/Bogota"))
+group by case when c.marcaEmpresa = '1' then 'GA' else 'DN' end,vendedor,codigoCliente,fechaEntrega,codigoRef;
+
+
+declare @dias int
+declare @diasefec int
+select @dias = DATEPART(dw,getdate()) 
+select @diasefec = case when  @dias = 2  then 2 else 1 end
+truncate table EFECTIVIDAD_X_VENDEDOR
+insert into EFECTIVIDAD_X_VENDEDOR (vendedor,efectividad,compra,nocompra)
+SELECT vendedor,case when (cast(programados as float)+cast(fueraFrecuencia as float))  > 0 then (cast(compras as float)+cast(fueraFrecuencia as float))/(cast(programados as float)+cast(fueraFrecuencia as float))  else 0 end * 100 efectividad,
+compras,nocompras
+FROM ALQUERIAWEB.ALQUERIA2.dbo.Efectividad
+where convert(varchar,fecha,103) = convert(varchar,getdate()-@diasefec,103)
+order by 1
+
+DECLARE dias INT64;
+DECLARE diasefec INT64;
+SET dias = EXTRACT(DAYOFWEEK FROM CURRENT_DATE("America/Bogota"));
+SET diasefec = CASE WHEN dias = 2 THEN 2 ELSE 1 END;
+
+TRUNCATE TABLE COMERCIAL.EFECTIVIDAD_X_VENDEDOR;
+
+TRUNCATE table COMERCIAL.VENTA_X_VENDEDOR2;
+
+insert into COMERCIAL.VENTA_X_VENDEDOR2 (empresa, descripcion,vendedor, cliente, articulo, valor, litros, fecha, periodo)
+SELECT COALESCE(INDI_Clientes.CODI_EMPRESA,'GA') AS empresa,
+VENTA_X_VENDEDOR.empresa AS descripcion,
+VENTA_X_VENDEDOR.vendedor AS vendedor,
+VENTA_X_VENDEDOR.cliente AS cliente,
+VENTA_X_VENDEDOR.articulo AS articulo,
+VENTA_X_VENDEDOR.valor AS valor,
+VENTA_X_VENDEDOR.litros AS litros,
+VENTA_X_VENDEDOR.fecha AS fecha,
+VENTA_X_VENDEDOR.periodo AS periodo
+FROM COMERCIAL.VENTA_X_VENDEDOR
+LEFT JOIN MAESTRO.INDI_Clientes  ON ((CONCAT(VENTA_X_VENDEDOR.empresa , VENTA_X_VENDEDOR.cliente))=CONCAT((CONCAT(INDI_Clientes.CODI_EMPRESA , LTRIM(RTRIM(INDI_Clientes.CODI_CLIENTE)))) , LTRIM(RTRIM(INDI_Clientes.SECUENCIA))));
+
+UPDATE COMERCIAL.VENTA_X_VENDEDOR2 set fuerafrecuencia = extraRuta
+fROM COMERCIAL.VENTA_X_VENDEDOR2 AS j inner join ALQUERIAWEB.ALQUERIA2NOVEDADES.dbo.novedadescompras AS c 
+on LTRIM(RTRIM(c.vendedor)) = LTRIM(RTRIM(j.vendedor)) collate SQL_Latin1_General_CP1_CS_AS
+AND  LTRIM(RTRIM(c.codigoCliente)) = LTRIM(RTRIM(j.cliente)) collate SQL_Latin1_General_CP1_CS_AS 
+WHERE FORMAT_DATE("%d/%m/%Y", DATE(c.fechaReal)) = FORMAT_DATE("%d/%m/%Y", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 1 DAY));
+
+update COMERCIAL.VENTA_X_VENDEDOR2 set fuerafrecuencia = '0'
+where fuerafrecuencia is null;
+
+

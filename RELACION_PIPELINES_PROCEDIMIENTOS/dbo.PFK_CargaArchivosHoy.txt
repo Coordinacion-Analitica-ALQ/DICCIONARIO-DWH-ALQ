@@ -1,0 +1,112 @@
+-- .............................................................................................
+-- Variables
+-- .............................................................................................
+DECLARE curdir STRING;
+DECLARE linea STRING;
+DECLARE command STRING;
+DECLARE raya STRING;
+DECLARE contador INT64;
+DECLARE contadorIni INT64;
+DECLARE MB NUMERIC;
+DECLARE KB NUMERIC;
+DECLARE peso INT64;
+
+SET MB = 1024*1024;
+SET KB = 1024;
+#SET NoCount On;
+-- .............................................................................................
+
+
+
+-- .............................................................................................
+-- DROP tablas temporales
+-- .............................................................................................
+#IF OBJECT_ID(N'tempdb..#tempRutas')			IS NOT NULL BEGIN  DROP TABLE #tempRutas END
+#IF OBJECT_ID(N'tempdb..#tempInfoArchivo')	IS NOT NULL BEGIN  DROP TABLE #tempInfoArchivo END
+
+--Eliminar tablas temporales
+
+-- .............................................................................................
+
+
+-- .............................................................................................
+-- Crear tablas temporales
+-- .............................................................................................
+CREATE TABLE #tempRutas		  (NomArchivo   VARCHAR(500), FechaMod VARCHAR(100))
+CREATE TABLE #tempInfoArchivo (NomArchivo   VARCHAR(500), FechaMod VARCHAR(100), Peso VARCHAR(100))
+
+CREATE TEMP TABLE tempRutas
+(
+    NomArchivo STRING,
+    FechaMod STRING
+);
+
+--...............................................................................
+
+--[dbo].[FK_ArchivosHoy]-- limpiar la tabla
+TRUNCATE TABLE [dbo].[FK_ArchivosHoy]	
+
+
+-- .............................................................................................
+-- Ejecutar xp_cmdshell
+-- .............................................................................................   
+SET @command = 'dir "' + @pDirectorio +'"' -- lista todo lo que haya en la carpeta actual			
+
+-- Borrar
+DELETE FROM #tempRutas
+-- Insertar todo lo del dato capturado por shell ...  	
+INSERT INTO #tempRutas(NomArchivo) EXEC master..xp_cmdshell @command    -- ej  -->    13/11/2018  03:49 p. m.   10.941.397 VENTAS_001.txt
+-- .............................................................................................   
+
+
+DELETE #tempRutas WHERE NomArchivo LIKE '%<dir>%'	-- Quitar los directorios			
+DELETE #tempRutas WHERE NomArchivo LIKE '%<DIR>%'	-- Quitar los directorios			
+DELETE #tempRutas WHERE NomArchivo LIKE ' %'		-- Quitar los mensajes de información ...   ej -->  El volumen de la unidad D no tiene etiqueta.
+DELETE #tempRutas WHERE NomArchivo IS NULL			-- Quitar los nulos 
+SET @contador = (select count(*) from #tempRutas)   -- Número de archivos
+
+
+UPDATE #tempRutas SET FechaMod   = LEFT(NomArchivo,(PATINDEX('%:%',NomArchivo) + 5)) -- Así en el 96
+--UPDATE #tempRutas SET FechaMod   = LEFT(NomArchivo,(PATINDEX('%m.%',NomArchivo))) -- Así en mi PC
+
+UPDATE #tempRutas SET NomArchivo = REPLACE(RIGHT( NomArchivo, (LEN(NomArchivo)-PATINDEX('%   %',NomArchivo)) ),',','') -- Así en el 96
+--UPDATE #tempRutas SET NomArchivo = REPLACE(RIGHT( NomArchivo, (LEN(NomArchivo)-PATINDEX('%   %',NomArchivo)) ),'.','') -- Así en mi PC
+
+UPDATE #tempRutas SET NomArchivo = LTRIM(NomArchivo), FechaMod = RTRIM(FechaMod)  -- Eliminar espacios en blanco
+
+
+-- ..............................................................................
+DELETE FROM #tempInfoArchivo;
+INSERT INTO #tempInfoArchivo
+SELECT  
+RIGHT(NomArchivo,LEN(NomArchivo) -PATINDEX('% %',NomArchivo)) AS NomArchivo, --Dividir(split) y obtener el nombre
+FechaMod,
+LEFT(NomArchivo,PATINDEX('% %',NomArchivo)) AS Peso --Dividir(split) y obtener el tamaño
+FROM    #tempRutas
+-- ..............................................................................
+
+
+-- ..............................................................................
+-- Insertar desde la temporal a la tabla de salida
+-- ..............................................................................
+INSERT INTO [dbo].[FK_ArchivosHoy]--(Directorio, Archivo, [Fecha Modificacion] [Tamaño en MB], [Tamaño en KB])
+SELECT  
+@pDirectorio,
+NomArchivo, -- Así en el 96
+--REPLACE(NomArchivo,'txt','.txt'), -- Así en mi pc
+FechaMod,
+CAST(CAST(Peso AS DECIMAL(13,2))/ @1MB AS DECIMAL(13,2)),
+CAST(CAST(Peso AS DECIMAL(13,2))/ @1KB AS DECIMAL(13,2))
+FROM    #tempInfoArchivo
+-- ..............................................................................
+
+DELETE FROM [dbo].[FK_ArchivosHoy]  WHERE Directorio is null       
+
+-- ...................................
+-- DROP tablas temporales
+-- ...................................
+DROP TABLE #tempRutas  
+DROP TABLE #tempInfoArchivo  
+-- ...................................
+
+--select * from FK_Archivos 
