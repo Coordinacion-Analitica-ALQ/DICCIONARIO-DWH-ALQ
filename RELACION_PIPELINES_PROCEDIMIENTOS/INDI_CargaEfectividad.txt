@@ -1,0 +1,12 @@
+TRUNCATE TABLE  MAESTRO.EFECTIVIDAD;
+
+INSERT INTO MAESTRO.EFECTIVIDAD
+SELECT distinct FORMAT_DATE("%Y/%m/%d", DATE(fecha)) as FECHA, C.vendedor as VENDEDOR, 
+programados AS PROGRAMADOS,  compras AS COMPRAS, nocompras AS NOCOMPRAS, fueraFrecuencia AS FUERAFRECUENCIA,  (compras) +(fueraFrecuencia) AS TOTAL_VENTA, 
+CAST(compras AS FLOAT64)/CAST(programados AS FLOAT)*100 AS EFECTIVIDAD,
+distrito AS DISTRITO, zona AS ZONA, regional AS REGIONAL, regional1 AS REGION, C.canalSuperior AS CANAL_SUPE, 
+C.canal AS CANAL from ALQUERIAWEB.ALQUERIA2.dbo.Clientes AS C inner join ALQUERIAWEB.ALQUERIA2.dbo.efectividad AS J on
+J.centroTransporte = C.centroTransporte and J.vendedor = C.vendedor
+where programados NOT IN ('0') 
+AND FORMAT_DATE("%Y/%m/%d", DATE(fecha)) > FORMAT_DATE("%Y/%m/%d", DATE_SUB(CURRENT_DATE("America/Bogota"), INTERVAL 180 DAY));
+
